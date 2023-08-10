@@ -4,15 +4,19 @@ SELECT *
 FROM Project.dbo.NashvilleHousing
 
 -- Changing SaleDate format from date-time to date
+ALTER TABLE NashvilleHousing
+ADD SaleDateConverted date;
 
 Select SaleDateConverted, CONVERT(Date,SaleDate)
 FROM Project.dbo.NashvilleHousing
 
-ALTER TABLE NashvilleHousing
-ADD SaleDateConverted date;
-
 UPDATE NashvilleHousing
 SET SaleDateConverted = CONVERT(Date,SaleDate)
+
+--Checking to see if there are Nulls in property address
+SELECT *
+FROM Project.dbo.NashvilleHousing
+WHERE PropertyAddress IS NULL
 
 -- Populate property address data
 --    visual inspection to see how we could populate the address
@@ -30,7 +34,6 @@ JOIN Project.dbo.NashvilleHousing B
  ON A.ParcelID = B.ParcelID
   AND A.[UniqueID ] <> B.[UniqueID ]
 WHERE A.PropertyAddress IS NULL 
-
 
 UPDATE A
 SET PropertyAddress = ISNULL(A.PropertyAddress, B.PropertyAddress)
@@ -66,7 +69,7 @@ SET PropertySplitCity = SUBSTRING(PropertyAddress, CHARINDEX(',',PropertyAddress
 
 SELECT
 PARSENAME(REPLACE(OwnerAddress,',','.'),3), /* PARSENAME does things backwards than SUBSTRING. the endmost split string is taken as 1*/
-PARSENAME(REPLACE(OwnerAddress,',','.'),2),
+PARSENAME(REPLACE(OwnerAddress,',','.'),2), /* It also splits according to period (.) and not commma. that's why u use replace function */
 PARSENAME(REPLACE(OwnerAddress,',','.'),1)
 FROM Project.dbo.NashvilleHousing
 
@@ -87,7 +90,7 @@ SELECT distinct(SoldAsVacant),count(SoldAsVacant)
 FROM Project.dbo.NashvilleHousing
 GROUP BY SoldAsVacant
 ORDER BY 2
-
+--   changing Y and N into Yes and No as Yes/No are more populated than Y/N  
 SELECT SoldAsVacant
 , CASE WHEN SoldAsVacant = 'Y' THEN 'Yes'
       WHEN SoldAsVacant = 'N' THEN 'No'
@@ -104,6 +107,23 @@ SET SoldAsVacant = CASE WHEN SoldAsVacant = 'Y' THEN 'Yes'
 
 -- Remove duplicates
 /* usually ppl dont do this. use with caution as u might delete all data*/
+
+WITH rownumCTE AS(
+SELECT *,
+ROW_NUMBER() OVER (
+ PARTITION BY ParcelID,
+              PropertyAddress,
+			  SaleDate,
+			  SalePrice,
+			  LegalReference
+ ORDER BY UniqueID
+ ) row_num
+FROM Project.dbo.NashvilleHousing
+)
+SELECT *
+FROM rownumCTE
+WHERE row_num > 1
+
 
 WITH rownumCTE AS(
 SELECT *,
